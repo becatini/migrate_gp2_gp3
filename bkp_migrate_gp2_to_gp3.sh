@@ -22,7 +22,7 @@ for account in $(cat account.txt); do
 
     # Global variables
     current_date=$(date +%Y-%m-%d)
-    migration_log="migration_log_${account}_${current_date}.txt"
+    migration_log="migration_log_$account_{current_date}.txt"
     migration_account_access_denied="migration_account_access_denied_${current_date}.txt"
     
     # Account variables
@@ -92,50 +92,50 @@ for account in $(cat account.txt); do
                     eval $(echo $check_account | \
                     jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
                 fi
-
-                # Get volumeID and IOPS
+                
+                # Get each volume ID and IOPS
                 volume_id=$(echo "$line" | awk '{print $1}')
                 iops=$(echo "$line" | awk '{print $2}')
                 
-                # Take a snapshot            
-                echo "$(get_date_time)" | tee -a $migration_log
-                echo "Taking volume $volume_id snapshot..." | tee -a $migration_log
-                snapshot=$(aws ec2 create-snapshot \
-                            --volume-id $volume_id \
-                            --description "Migrate gp2 to gp3" \
-                            --region $region 2>&1)                        
+                # IOPS greater than 3000
+                if [ "$iops" -gt 3000 ]; then
+                    # Take a snapshot            
+                    echo "$(get_date_time)" | tee -a $migration_log
+                    echo "Taking volume $volume_id snapshot..." | tee -a $migration_log
+                    snapshot=$(aws ec2 create-snapshot \
+                                --volume-id $volume_id \
+                                --description "Migrate gp2 to gp3" \
+                                --region $region 2>&1)                        
                     
-                # Get snapshot ID
-                current_snapshot_id=$(echo $snapshot | jq -r '.SnapshotId')
+                    # Get snapshot ID
+                    current_snapshot_id=$(echo $snapshot | jq -r '.SnapshotId')
                     
-                # Get snapshot progress
-                snapshot_progress=$(aws ec2 describe-snapshots \
-                                        --region $region \
-                                        --snapshot-ids $current_snapshot_id \
-                                        --query 'Snapshots[].Progress' \
-                                        --output text)
-                
-                # Check if snapshot was taken
-                if [ -z "$snapshot" ]; then        
-                    echo "Snapshot not created from volume: $volume_id. Double-check it."                
-                else                    
-                    # Genereate snapshot log file
-                    echo $snapshot | \
-                        jq -r '.VolumeId, .SnapshotId' | tr '\n' ' ' | \
-                        awk -v p1="$account" -v p2="$region" '{print p1, p2, $0}' >> $snapshot_file
+                    # Get snapshot progress
+                    snapshot_progress=$(aws ec2 describe-snapshots \
+                                            --region $region \
+                                            --snapshot-ids $current_snapshot_id \
+                                            --query 'Snapshots[].Progress' \
+                                            --output text)
+                    
+                    # Check if snapshot was taken
+                    if [ -z "$snapshot" ]; then        
+                        echo "Snapshot not created from volume: $volume_id. Double-check it."                
+                    else                    
+                        # Genereate snapshot log file
+                        echo $snapshot | \
+                            jq -r '.VolumeId, .SnapshotId' | tr '\n' ' ' | \
+                            awk -v p1="$account" -v p2="$region" '{print p1, p2, $0}' >> $snapshot_file
                                                         
-                    SnapshotState=$(get_snapshot_state)
-            
-                    # Check SnapshotState behaviour
-                    while [ "$SnapshotState" == "pending" ]; do                                    
-                        echo "Snapshot $current_snapshot_id progress is $snapshot_progress. Waiting for completion..." | tee -a $migration_log
-                        sleep 10
                         SnapshotState=$(get_snapshot_state)
-                    done
-                    if [ "$SnapshotState" == "completed" ]; then
-                        echo "Volume $volume_id snapshot state is: $SnapshotState" | tee -a $migration_log                        
-                        # Check if IOPS greater than 3000
-                        if [ "$iops" -gt 3000 ]; then                        
+            
+                        # Check SnapshotState behaviour
+                        while [ "$SnapshotState" == "pending" ]; do                                    
+                            echo "Snapshot $current_snapshot_id progress is $snapshot_progress. Waiting for completion..." | tee -a $migration_log
+                            sleep 10
+                            SnapshotState=$(get_snapshot_state)
+                        done
+                        if [ "$SnapshotState" == "completed" ]; then
+                            echo "Volume $volume_id snapshot state is: $SnapshotState" | tee -a $migration_log
                             # Migrate to gp3 and maintain IOPS value
                             echo "Migrating volume $volume_id to gp3..." | tee -a $migration_log
                             migration=$(aws ec2 modify-volume \
@@ -154,15 +154,58 @@ for account in $(cat account.txt); do
                                 echo "ERROR: couldn't change volume ${volume_id} type to gp3!" | tee -a $migration_log
                                 echo "$account $region $volume_id" >> $not_migrated_file
                                 read -p "Press any key to resume ..."
-                            fi
+                            fi                
+                        elif [ "$SnapshotState" != "completed" && "$SnapshotState" != "pending" ]; then
+                            echo "Snapshot NOT TAKEN. State is now $SnapshotState." | tee -a $migration_log
+                            echo "Volume $volume_id WILL NOT be migrated" | tee -a $migration_log
+                            echo "$account $region $volume_id" >> $snapshot_error_file
+                            read -p "Press any key to resume ..."
+                        fi
+                    fi
+                # IOPS NOT greater than 3000
+                else
+                    
+                    # Take a snapshot  
+                    echo "$(get_date_time)" | tee -a $migration_log
+                    echo "Taking volume $volume_id snapshot..." | tee -a $migration_log
+                    snapshot=$(aws ec2 create-snapshot \
+                                --volume-id $volume_id \
+                                --description "Migrate gp2 to gp3" \
+                                --region $region 2>&1)
+                    
+                    current_snapshot_id=$(echo $snapshot | jq -r '.SnapshotId')
+                    
+                    snapshot_progress=$(aws ec2 describe-snapshots \
+                                            --region $region \
+                                            --snapshot-ids $current_snapshot_id \
+                                            --query 'Snapshots[].Progress' \
+                                            --output text)
+                    
+                    # Check if snapshot was taken
+                    if [ -z "$snapshot" ]; then        
+                        echo "Snapshot not created from volume: $volume_id. Double-check it."                
+                    else
+                        # Genereate snapshot output
+                        echo $snapshot | \
+                            jq -r '.VolumeId, .SnapshotId' | tr '\n' ' ' | \
+                            awk -v p1="$account" -v p2="$region" '{print p1, p2, $0}' >> $snapshot_file                                
                         
-                        # Check if IOPS lower than 3000
-                        else
-                            # Migrate to gp3 and set default IOPS value (3000)
+                        SnapshotState=$(get_snapshot_state)
+            
+                        # Check SnapshotState behaviour
+                        while [ "$SnapshotState" == "pending" ]; do                    
+                            echo "Snapshot $current_snapshot_id progress is $snapshot_progress. Waiting for completion..." | tee -a $migration_log
+                            sleep 10
+                            SnapshotState=$(get_snapshot_state)
+                        done
+                        if [ "$SnapshotState" == "completed" ]; then
+                            echo "Volume $volume_id snapshot state is: $SnapshotState" | tee -a $migration_log
+                            # Migrate to gp3 and maintain IOPS value
                             echo "Migrating volume $volume_id to gp3..." | tee -a $migration_log
                             migration=$(aws ec2 modify-volume \
                                             --volume-id $volume_id \
                                             --volume-type gp3 \
+                                            --iops $iops \
                                             --region $region | \
                                             jq '.VolumeModification.ModificationState' | \
                                             sed 's/"//g')                                    
@@ -175,20 +218,19 @@ for account in $(cat account.txt); do
                                 echo "ERROR: couldn't change volume ${volume_id} type to gp3!" | tee -a $migration_log
                                 echo "$account $region $volume_id" >> $not_migrated_file
                                 read -p "Press any key to resume ..."
-                            fi
+                            fi                
+                        elif [ "$SnapshotState" != "completed" && "$SnapshotState" != "pending" ]; then
+                            echo "Snapshot NOT TAKEN. State is now $SnapshotState." | tee -a $migration_log
+                            echo "Volume $volume_id WILL NOT be migrated" | tee -a $migration_log
+                            echo "$account $region $volume_id" >> $snapshot_error_file
+                            read -p "Press any key to resume ..."
                         fi
-                    
-                    # Snapshot not completed
-                    elif [ "$SnapshotState" != "completed" && "$SnapshotState" != "pending" ]; then
-                        echo "Snapshot NOT TAKEN. State is now $SnapshotState." | tee -a $migration_log
-                        echo "Volume $volume_id WILL NOT be migrated" | tee -a $migration_log
-                        echo "$account $region $volume_id" >> $snapshot_error_file
-                        read -p "Press any key to resume ..."
                     fi
                 fi
             done
         fi
     done
+
     # Change Terraform role max session duration back to 1hour
     aws iam update-role --role-name Terraform --max-session-duration 3600
 done
