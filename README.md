@@ -5,7 +5,7 @@ afdadf
 adsf  
 asdf 
 
-![Diagram](images\diagram.png)
+![Diagram](images/diagram.png)
 
 ```bash
 ls -l
