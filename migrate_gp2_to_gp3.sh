@@ -107,8 +107,10 @@ for account in $(cat account.txt); do
                                 --description "Migrate gp2 to gp3" \
                                 --region $region 2>&1)                        
                     
+                    # Get snapshot ID
                     current_snapshot_id=$(echo $snapshot | jq -r '.SnapshotId')
                     
+                    # Get snapshot progress
                     snapshot_progress=$(aws ec2 describe-snapshots \
                                             --region $region \
                                             --snapshot-ids $current_snapshot_id \
@@ -119,7 +121,7 @@ for account in $(cat account.txt); do
                     if [ -z "$snapshot" ]; then        
                         echo "Snapshot not created from volume: $volume_id. Double-check it."                
                     else                    
-                        # Genereate snapshot output
+                        # Genereate snapshot log file
                         echo $snapshot | \
                             jq -r '.VolumeId, .SnapshotId' | tr '\n' ' ' | \
                             awk -v p1="$account" -v p2="$region" '{print p1, p2, $0}' >> $snapshot_file
