@@ -17,7 +17,7 @@ get_date_time() {
     date +%Y-%m-%d" "%H:%M
 }
 
-# List of accounts
+# List accounts
 for account in $(cat account.txt); do
 
     # Global variables
