@@ -36,7 +36,7 @@ for account in $(cat account.txt); do
     echo "Processing account: $account" | tee -a $migration_log
     echo "+------------------------------+" | tee -a $migration_log
 
-    # Assume role 
+    # Assume role Terraform
     rolearn="arn:aws:iam::$account:role/Terraform"
     check_account=$(aws sts assume-role \
                         --role-arn $rolearn \
@@ -49,6 +49,13 @@ for account in $(cat account.txt); do
 
     # Change Terraform role max session duration to 12hours
     aws iam update-role --role-name Terraform --max-session-duration 43200
+    check_account=$(aws sts assume-role \
+                        --role-arn $rolearn \
+                        --role-session-name TestSession \
+                        --duration-seconds 43100 \
+                        --profile master 2>&1)
+    eval $(echo $check_account | \
+    jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
     
     # Get AWS regions
     aws_regions=$(aws ec2 describe-regions --query 'Regions[].RegionName' --output text)
@@ -58,7 +65,7 @@ for account in $(cat account.txt); do
 
         # Assume role increase durantion variables
         start=$(date +%s)
-        end=$((start + 40*60))        
+        end=$((start + 420*60))        
         
         echo "" | tee -a $migration_log
         echo "Processing region: $region" | tee -a $migration_log
@@ -140,7 +147,7 @@ for account in $(cat account.txt); do
                             if [ $? -eq 0 ] && [ "$migration" == "modifying" ];then
                                 echo "$account $region $volume_id" >> $migration_file
                                 echo "Volume $volume_id type changed to gp3" | tee -a $migration_log
-                                echo "---" >> $migration_log | tee -a $migration_log
+                                echo "---" | tee -a $migration_log
                             else
                                 echo "ERROR: couldn't change volume ${volume_id} type to gp3!" | tee -a $migration_log
                                 echo "$account $region $volume_id" >> $not_migrated_file
@@ -204,7 +211,7 @@ for account in $(cat account.txt); do
                             if [ $? -eq 0 ] && [ "$migration" == "modifying" ];then
                                 echo "$account $region $volume_id" >> $migration_file
                                 echo "Volume $volume_id type changed to gp3" | tee -a $migration_log
-                                echo "---" >> $migration_log | tee -a $migration_log
+                                echo "---" | tee -a $migration_log
                             else
                                 echo "ERROR: couldn't change volume ${volume_id} type to gp3!" | tee -a $migration_log
                                 echo "$account $region $volume_id" >> $not_migrated_file
