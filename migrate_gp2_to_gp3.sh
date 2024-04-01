@@ -36,7 +36,7 @@ for account in $(cat account.txt); do
     echo "Processing account: $account" | tee -a $migration_log
     echo "+------------------------------+" | tee -a $migration_log
 
-    # Assume role 
+    # Assume role Terraform
     rolearn="arn:aws:iam::$account:role/Terraform"
     check_account=$(aws sts assume-role \
                         --role-arn $rolearn \
