@@ -65,7 +65,7 @@ for account in $(cat account.txt); do
 
         # Assume role increase durantion variables
         start=$(date +%s)
-        end=$((start + 40*60))        
+        end=$((start + 420*60))        
         
         echo "" | tee -a $migration_log
         echo "Processing region: $region" | tee -a $migration_log
