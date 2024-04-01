@@ -92,6 +92,10 @@ for account in $(cat account.txt); do
                     eval $(echo $check_account | \
                     jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
                 fi
+
+                # Get volumeID and IOPS
+                volume_id=$(echo "$line" | awk '{print $1}')
+                iops=$(echo "$line" | awk '{print $2}')
                 
                 # Take a snapshot            
                 echo "$(get_date_time)" | tee -a $migration_log
@@ -129,12 +133,7 @@ for account in $(cat account.txt); do
                         SnapshotState=$(get_snapshot_state)
                     done
                     if [ "$SnapshotState" == "completed" ]; then
-                        echo "Volume $volume_id snapshot state is: $SnapshotState" | tee -a $migration_log
-                        
-                        # Get volume ID and IOPS
-                        volume_id=$(echo "$line" | awk '{print $1}')
-                        iops=$(echo "$line" | awk '{print $2}')
-                        
+                        echo "Volume $volume_id snapshot state is: $SnapshotState" | tee -a $migration_log                        
                         # Check if IOPS greater than 3000
                         if [ "$iops" -gt 3000 ]; then                        
                             # Migrate to gp3 and maintain IOPS value
