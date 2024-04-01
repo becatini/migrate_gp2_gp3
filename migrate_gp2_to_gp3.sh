@@ -49,6 +49,13 @@ for account in $(cat account.txt); do
 
     # Change Terraform role max session duration to 12hours
     aws iam update-role --role-name Terraform --max-session-duration 43200
+    check_account=$(aws sts assume-role \
+                        --role-arn $rolearn \
+                        --role-session-name TestSession \
+                        --duration-seconds 43200
+                        --profile master 2>&1)
+    eval $(echo $check_account | \
+    jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
     
     # Get AWS regions
     aws_regions=$(aws ec2 describe-regions --query 'Regions[].RegionName' --output text)
