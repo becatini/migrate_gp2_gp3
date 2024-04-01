@@ -147,7 +147,7 @@ for account in $(cat account.txt); do
                             if [ $? -eq 0 ] && [ "$migration" == "modifying" ];then
                                 echo "$account $region $volume_id" >> $migration_file
                                 echo "Volume $volume_id type changed to gp3" | tee -a $migration_log
-                                echo "---" >> $migration_log | tee -a $migration_log
+                                echo "---" | tee -a $migration_log
                             else
                                 echo "ERROR: couldn't change volume ${volume_id} type to gp3!" | tee -a $migration_log
                                 echo "$account $region $volume_id" >> $not_migrated_file
@@ -211,7 +211,7 @@ for account in $(cat account.txt); do
                             if [ $? -eq 0 ] && [ "$migration" == "modifying" ];then
                                 echo "$account $region $volume_id" >> $migration_file
                                 echo "Volume $volume_id type changed to gp3" | tee -a $migration_log
-                                echo "---" >> $migration_log | tee -a $migration_log
+                                echo "---" | tee -a $migration_log
                             else
                                 echo "ERROR: couldn't change volume ${volume_id} type to gp3!" | tee -a $migration_log
                                 echo "$account $region $volume_id" >> $not_migrated_file
