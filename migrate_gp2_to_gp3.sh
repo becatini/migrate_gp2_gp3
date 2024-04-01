@@ -22,7 +22,7 @@ for account in $(cat account.txt); do
 
     # Global variables
     current_date=$(date +%Y-%m-%d)
-    migration_log="migration_log_${current_date}.txt"
+    migration_log="migration_log_$_account_{current_date}.txt"
     migration_account_access_denied="migration_account_access_denied_${current_date}.txt"
     
     # Account variables
