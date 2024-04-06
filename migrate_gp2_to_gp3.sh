@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# set -x
+
 clear
 
 # Function - get initial snapshot state
@@ -41,7 +43,7 @@ for account in $(cat account.txt); do
     check_account=$(aws sts assume-role \
                         --role-arn $rolearn \
                         --role-session-name TestSession \
-                        --profile master 2>&1)
+                        --profile master)
     
     # Export temporary credentials
     eval $(echo $check_account | \
@@ -52,8 +54,8 @@ for account in $(cat account.txt); do
     check_account=$(aws sts assume-role \
                         --role-arn $rolearn \
                         --role-session-name TestSession \
-                        --duration-seconds 43100 \
-                        --profile master 2>&1)
+                        --duration-seconds 36000 \
+                        --profile master)
     eval $(echo $check_account | \
     jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
     
@@ -65,7 +67,7 @@ for account in $(cat account.txt); do
 
         # Assume role increase durantion variables
         start=$(date +%s)
-        end=$((start + 420*60))        
+        end=$((start + 420*60))
         
         echo "" | tee -a $migration_log
         echo "Processing region: $region" | tee -a $migration_log
@@ -88,7 +90,11 @@ for account in $(cat account.txt); do
                 # Assume role increase duration
                 current=$(date +%s)
                 if [ $end -lt $current ]; then    
-                    check_account=$(aws sts assume-role --role-arn $rolearn --role-session-name TestSession --profile master 2>&1)
+                    check_account=$(aws sts assume-role 
+                                    --role-arn $rolearn \
+                                    --role-session-name TestSession \
+                                    --duration-seconds 43200 \
+                                    --profile master)
                     eval $(echo $check_account | \
                     jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
                 fi
@@ -103,7 +109,7 @@ for account in $(cat account.txt); do
                 snapshot=$(aws ec2 create-snapshot \
                             --volume-id $volume_id \
                             --description "Migrate gp2 to gp3" \
-                            --region $region 2>&1)                        
+                            --region $region)                        
                     
                 # Get snapshot ID
                 current_snapshot_id=$(echo $snapshot | jq -r '.SnapshotId')
