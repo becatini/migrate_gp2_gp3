@@ -19,6 +19,15 @@ get_date_time() {
     date +%Y-%m-%d" "%H:%M
 }
 
+# Function - get snapshot progress
+get_snapshot_progress() {
+    aws ec2 describe-snapshots \
+        --region $region \
+        --snapshot-ids $current_snapshot_id \
+        --query 'Snapshots[].Progress' \
+        --output text
+}
+
 # List accounts
 for account in $(cat account.txt); do
 
@@ -113,13 +122,6 @@ for account in $(cat account.txt); do
                     
                 # Get snapshot ID
                 current_snapshot_id=$(echo $snapshot | jq -r '.SnapshotId')
-                    
-                # Get snapshot progress
-                snapshot_progress=$(aws ec2 describe-snapshots \
-                                        --region $region \
-                                        --snapshot-ids $current_snapshot_id \
-                                        --query 'Snapshots[].Progress' \
-                                        --output text)
                 
                 # Check if snapshot was taken
                 if [ -z "$snapshot" ]; then        
@@ -134,10 +136,11 @@ for account in $(cat account.txt); do
             
                     # Check SnapshotState behaviour
                     while [ "$SnapshotState" == "pending" ]; do                                    
+                        snapshot_progress=$(get_snapshot_progress)
                         echo "Snapshot $current_snapshot_id progress is $snapshot_progress. Waiting for completion..." | tee -a $migration_log
                         sleep 10
                         SnapshotState=$(get_snapshot_state)
-                    done
+                    done                    
                     if [ "$SnapshotState" == "completed" ]; then
                         echo "Volume $volume_id snapshot state is: $SnapshotState" | tee -a $migration_log                        
                         # Check if IOPS greater than 3000
