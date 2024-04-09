@@ -23,7 +23,7 @@ get_date_time() {
 get_snapshot_progress() {
     aws ec2 describe-snapshots \
         --region $region \
-        --snapshot-ids $current_snapshot_id \
+        --snapshot-ids $1 \
         --query 'Snapshots[].Progress' \
         --output text
 }
@@ -135,9 +135,9 @@ for account in $(cat account.txt); do
                     SnapshotState=$(get_snapshot_state "$volume_id")
 
                     # Check SnapshotState behaviour
-                    if [ "$SnapshotState" == "peding" ]; then
+                    if [ "$SnapshotState" == "pending" ]; then
                         while [ "$SnapshotState" == "pending" ]; do
-                            snapshot_progress=$(get_snapshot_progress)
+                            snapshot_progress=$(get_snapshot_progress "$current_snapshot_id")
                             echo "Snapshot $current_snapshot_id progress is $snapshot_progress. Waiting for completion..." | tee -a $migration_log
                             sleep 10
                             SnapshotState=$(get_snapshot_state "$volume_id")
