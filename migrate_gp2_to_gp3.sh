@@ -28,22 +28,6 @@ get_snapshot_progress() {
         --output text
 }
 
-# Workaround - set role max duration to 12 hours
-for account in $(cat account.txt); do
-
-    rolearn="arn:aws:iam::$account:role/Terraform"
-    eval $(aws sts assume-role --role-arn $rolearn \
-            --role-session-name TestSession \
-            --profile master | \
-            jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
-    
-    aws iam update-role --role-name Terraform --max-session-duration 43200
-
-    echo "Changing role max duration session to 12 hours"
-    echo "Account: $account"
-done
-echo "Done!"
-
 # List accounts
 for account in $(cat account.txt); do
 
@@ -64,6 +48,7 @@ for account in $(cat account.txt); do
     echo "+------------------------------+" | tee -a $migration_log
        
     # Assume role Terraform
+    rolearn="arn:aws:iam::$account:role/Terraform"
     assumed_role=$(aws sts assume-role \
                     --role-arn $rolearn \
                     --role-session-name AssumeRoleSession \
@@ -73,7 +58,7 @@ for account in $(cat account.txt); do
     # Set up the credentials
     export AWS_ACCESS_KEY_ID=$(echo $assumed_role | jq -r '.AccessKeyId')
     export AWS_SECRET_ACCESS_KEY=$(echo $assumed_role | jq -r '.SecretAccessKey')
-    export AWS_SESSION_TOKEN=$(echo $assumed_role | jq -r '.SessionToken')        
+    export AWS_SESSION_TOKEN=$(echo $assumed_role | jq -r '.SessionToken')
 
     # Get AWS regions
     aws_regions=$(aws ec2 describe-regions --query 'Regions[].RegionName' --output text)
@@ -137,6 +122,7 @@ for account in $(cat account.txt); do
                         jq -r '.VolumeId, .SnapshotId' | tr '\n' ' ' | \
                         awk -v p1="$account" -v p2="$region" '{print p1, p2, $0}' >> $snapshot_file
 
+                    sleep 1
                     SnapshotState=$(get_snapshot_state "$volume_id")
 
                     # Check SnapshotState behaviour
