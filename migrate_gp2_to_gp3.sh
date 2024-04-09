@@ -28,6 +28,22 @@ get_snapshot_progress() {
         --output text
 }
 
+# Workaround - set role max duration to 12 hours
+for account in $(cat account.txt); do
+
+    rolearn="arn:aws:iam::$account:role/Terraform"
+    eval $(aws sts assume-role --role-arn $rolearn \
+            --role-session-name TestSession \
+            --profile master | \
+            jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
+    
+    aws iam update-role --role-name Terraform --max-session-duration 43200
+
+    echo "Changing role max duration session to 12 hours"
+    echo "Account: $account"
+done
+echo "Done!"
+
 # List accounts
 for account in $(cat account.txt); do
 
@@ -46,27 +62,18 @@ for account in $(cat account.txt); do
     echo "+------------------------------+" | tee -a $migration_log
     echo "Processing account: $account" | tee -a $migration_log
     echo "+------------------------------+" | tee -a $migration_log
-
+       
     # Assume role Terraform
-    rolearn="arn:aws:iam::$account:role/Terraform"
-    check_account=$(aws sts assume-role \
-                        --role-arn $rolearn \
-                        --role-session-name TestSession \
-                        --profile master)
-
-    # Export temporary credentials
-    eval $(echo $check_account | \
-    jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
-
-    # Change Terraform role max session duration to 12hours
-    aws iam update-role --role-name Terraform --max-session-duration 43200
-    check_account=$(aws sts assume-role \
-                        --role-arn $rolearn \
-                        --role-session-name TestSession \
-                        --duration-seconds 36000 \
-                        --profile master)
-    eval $(echo $check_account | \
-    jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
+    assumed_role=$(aws sts assume-role \
+                    --role-arn $rolearn \
+                    --role-session-name AssumeRoleSession \
+                    --duration-seconds 43200 \
+                    --profile master \
+                    --query 'Credentials.{AccessKeyId:AccessKeyId,SecretAccessKey:SecretAccessKey,SessionToken:SessionToken}')
+    # Set up the credentials
+    export AWS_ACCESS_KEY_ID=$(echo $assumed_role | jq -r '.AccessKeyId')
+    export AWS_SECRET_ACCESS_KEY=$(echo $assumed_role | jq -r '.SecretAccessKey')
+    export AWS_SESSION_TOKEN=$(echo $assumed_role | jq -r '.SessionToken')        
 
     # Get AWS regions
     aws_regions=$(aws ec2 describe-regions --query 'Regions[].RegionName' --output text)
@@ -75,8 +82,8 @@ for account in $(cat account.txt); do
     for region in $aws_regions; do
 
         # Assume role increase durantion variables
-        start=$(date +%s)
-        end=$((start + 420*60))
+        #start=$(date +%s)
+        #end=$((start + 420*60))
 
         echo "" | tee -a $migration_log
         echo "Processing region: $region" | tee -a $migration_log
@@ -96,17 +103,15 @@ for account in $(cat account.txt); do
             # Read the volumes
             echo "$volume_ids" | while read -r line; do
 
-                # Assume role increase duration
-                current=$(date +%s)
-                if [ $end -lt $current ]; then
-                    check_account=$(aws sts assume-role
-                                    --role-arn $rolearn \
-                                    --role-session-name TestSession \
-                                    --duration-seconds 43200 \
-                                    --profile master)
-                    eval $(echo $check_account | \
-                    jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
-                fi
+                # Assume role - renew temporary credentials
+                #current=$(date +%s)
+                #if [ $end -lt $current ]; then
+                #    eval $(aws sts assume-role --role-arn $rolearn \
+                #        --role-session-name TestSession \
+                #        --duration-seconds 36000 \
+                #        --profile master | \
+                #        jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
+                #fi
 
                 # Get volumeID and IOPS
                 volume_id=$(echo "$line" | awk '{print $1}')
@@ -204,4 +209,9 @@ for account in $(cat account.txt); do
     done
     # Change Terraform role max session duration back to 1hour
     aws iam update-role --role-name Terraform --max-session-duration 3600
+
+    # Unset the assumed role credentials
+    unset AWS_ACCESS_KEY_ID
+    unset AWS_SECRET_ACCESS_KEY
+    unset AWS_SESSION_TOKEN
 done
