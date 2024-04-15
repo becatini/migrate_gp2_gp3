@@ -19,4 +19,4 @@ update_role=$(aws iam get-role --role-name terraform --query 'Role.MaxSessionDur
 
 echo "$account"
 echo "Role max session durante updated to: ${update_role} seconds"
-echo ""
+#echo ""
