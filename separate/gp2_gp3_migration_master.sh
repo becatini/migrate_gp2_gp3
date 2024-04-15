@@ -32,13 +32,11 @@ region=$(echo $read_region | tr '[:upper:]' '[:lower:]')
 
 # Global variables
 current_date=$(date +%Y-%m-%d)
-full_log="full_log_${account}_${current_date}.txt"
-
-# Account variables
-snapshot_file="${account}_${region}_snapshot_${current_date}.txt"
+full_log="migration_full_log_${account}_${current_date}.txt"
+migration_file="${account}_${region}_migration_${current_date}.txt"
 
 # Check if the entered region is valid
-if [[ " ${aws_regions[@]} " =~ " ${region} " ]]; then
+if [[ "${aws_regions[@]}" =~ "${region}" ]]; then
     
     echo "" | tee -a $full_log
     echo "Processing region: $region" | tee -a $full_log
@@ -62,24 +60,37 @@ if [[ " ${aws_regions[@]} " =~ " ${region} " ]]; then
             volume_id=$(echo "$line" | awk '{print $1}')
             iops=$(echo "$line" | awk '{print $2}')
 
-            # Take a snapshot            
-            echo "Taking volume $volume_id snapshot..." | tee -a $full_log
-            snapshot=$(aws ec2 create-snapshot \
-                        --volume-id $volume_id \
-                        --description "Migrate gp2 to gp3" \
-                        --region $region)
+            # Check if IOPS greater than 3000                        
+            if [ "$iops" -gt 3000 ]; then
+                # Migrate to gp3 and maintain IOPS value
+                echo "Migrating volume $volume_id to gp3..." | tee -a $full_log
+                migration=$(aws ec2 modify-volume \
+                                --volume-id $volume_id \
+                                --volume-type gp3 \
+                                --iops $iops \
+                                --region $region | \
+                                jq '.VolumeModification.ModificationState' | \
+                                sed 's/"//g')
+                
+                echo "$account $region $volume_id" >> $migration_file
+                echo "Volume $volume_id type changed to gp3" | tee -a $full_log
+                echo "---" | tee -a $full_log                            
 
-            # Get snapshot ID
-            current_snapshot_id=$(echo $snapshot | jq -r '.SnapshotId')
-            echo "Snapshot ${current_snapshot_id} created" | tee -a $full_log
-            echo "---" | tee -a $full_log
-            
-            # Genereate snapshot log file
-            echo $snapshot | \
-                jq -r '.VolumeId, .SnapshotId' | tr '\n' ' ' | \
-                awk -v p1="$account" -v p2="$region" '{print p1, p2, $0}' >> $snapshot_file
-
-            
+            # Check if IOPS lower than 3000
+            else
+                # Migrate to gp3 and set default IOPS value (3000)
+                echo "Migrating volume $volume_id to gp3..." | tee -a $full_log
+                migration=$(aws ec2 modify-volume \
+                                --volume-id $volume_id \
+                                --volume-type gp3 \
+                                --region $region | \
+                                jq '.VolumeModification.ModificationState' | \
+                                sed 's/"//g')
+                
+                echo "$account $region $volume_id" >> $migration_file
+                echo "Volume $volume_id type changed to gp3" | tee -a $full_log
+                echo "---" | tee -a $full_log                            
+            fi            
         done
     fi    
     # Unset the assumed role credentials
