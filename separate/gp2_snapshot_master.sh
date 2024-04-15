@@ -32,7 +32,7 @@ region=$(echo $read_region | tr '[:upper:]' '[:lower:]')
 
 # Global variables
 current_date=$(date +%Y-%m-%d)
-full_log="full_log_${account}_${current_date}.txt"
+full_log="snapshot_full_log_${account}_${current_date}.txt"
 
 # Account variables
 snapshot_file="${account}_${region}_snapshot_${current_date}.txt"
