@@ -1,31 +1,11 @@
 #!/bin/bash
 
 # set -x
-
 clear
-
-# Function - get initial snapshot state
-get_snapshot_state() {
-    aws ec2 describe-snapshots \
-        --owner-ids self \
-        --filters Name=volume-id,Values=$1 \
-        --region $region \
-        --query 'Snapshots[0].[State]' \
-        --output text
-}
 
 # Function - get current date and time
 get_date_time() {
     date +%Y-%m-%d" "%H:%M
-}
-
-# Function - get snapshot progress
-get_snapshot_progress() {
-    aws ec2 describe-snapshots \
-        --region $region \
-        --snapshot-ids $1 \
-        --query 'Snapshots[].Progress' \
-        --output text
 }
 
 # Set account | region
@@ -37,7 +17,6 @@ rolearn="arn:aws:iam::$account:role/Terraform"
 assumed_role=$(aws sts assume-role \
                 --role-arn $rolearn \
                 --role-session-name AssumeRoleSession \
-                --duration-seconds 43200 \
                 --profile master \
                 --query 'Credentials.{AccessKeyId:AccessKeyId,SecretAccessKey:SecretAccessKey,SessionToken:SessionToken}')
 # Set up the credentials
@@ -75,6 +54,7 @@ if [[ " ${aws_regions[@]} " =~ " ${region} " ]]; then
     if [ -z "$volume_ids" ]; then
         echo "Region $region has no gp2 volumes" | tee -a $full_log
     else
+        echo "$(get_date_time)" | tee -a $full_log
         # Read the volumes
         echo "$volume_ids" | while read -r line; do
 
@@ -82,8 +62,7 @@ if [[ " ${aws_regions[@]} " =~ " ${region} " ]]; then
             volume_id=$(echo "$line" | awk '{print $1}')
             iops=$(echo "$line" | awk '{print $2}')
 
-            # Take a snapshot
-            echo "$(get_date_time)" | tee -a $full_log
+            # Take a snapshot            
             echo "Taking volume $volume_id snapshot..." | tee -a $full_log
             snapshot=$(aws ec2 create-snapshot \
                         --volume-id $volume_id \
@@ -92,16 +71,17 @@ if [[ " ${aws_regions[@]} " =~ " ${region} " ]]; then
 
             # Get snapshot ID
             current_snapshot_id=$(echo $snapshot | jq -r '.SnapshotId')
+            echo "Snapshot ${current_snapshot_id} created" | tee -a $full_log
+            echo "---" | tee -a $full_log
             
             # Genereate snapshot log file
             echo $snapshot | \
                 jq -r '.VolumeId, .SnapshotId' | tr '\n' ' ' | \
                 awk -v p1="$account" -v p2="$region" '{print p1, p2, $0}' >> $snapshot_file
-        done
-    fi
-    # Change Terraform role max session duration back to 1hour
-    aws iam update-role --role-name Terraform --max-session-duration 3600
 
+            
+        done
+    fi    
     # Unset the assumed role credentials
     unset AWS_ACCESS_KEY_ID
     unset AWS_SECRET_ACCESS_KEY
@@ -110,6 +90,3 @@ if [[ " ${aws_regions[@]} " =~ " ${region} " ]]; then
 else
     echo "Invalid AWS region ID: $region"
 fi
-
-
-
