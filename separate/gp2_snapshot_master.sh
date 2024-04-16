@@ -8,6 +8,15 @@ get_date_time() {
     date +%Y-%m-%d" "%H:%M
 }
 
+get_snapshot_state() {
+    aws ec2 describe-snapshots \
+        --owner-ids self \
+        --region $region \
+        --filters Name=description,Values="Migrate gp2 to gp3" Name=status,Values=pending \
+        --query 'Snapshots[].[SnapshotId,Progress,VolumeId]' \
+        --output text
+}
+
 # Set account | region
 account=$1
 read_region=$2
@@ -60,7 +69,6 @@ if [[ " ${aws_regions[@]} " =~ " ${region} " ]]; then
 
             # Get volumeID and IOPS
             volume_id=$(echo "$line" | awk '{print $1}')
-            iops=$(echo "$line" | awk '{print $2}')
 
             # Take a snapshot            
             echo "Taking volume $volume_id snapshot..." | tee -a $full_log
@@ -77,9 +85,16 @@ if [[ " ${aws_regions[@]} " =~ " ${region} " ]]; then
             # Genereate snapshot log file
             echo $snapshot | \
                 jq -r '.VolumeId, .SnapshotId' | tr '\n' ' ' | \
-                awk -v p1="$account" -v p2="$region" '{print p1, p2, $0}' >> $snapshot_file
+                awk -v p1="$account" -v p2="$region" '{print p1, p2, $0}' >> $snapshot_file            
+        done
 
-            
+        SnapshotState=$(get_snapshot_state)
+        echo "Snapshots in pending state..."
+        while [ ! -z "$SnapshotState" ]; do
+            SnapshotState=$(get_snapshot_state)
+            echo "${SnapshotState}"            
+            echo "---"
+            sleep 15
         done
     fi    
     # Unset the assumed role credentials
