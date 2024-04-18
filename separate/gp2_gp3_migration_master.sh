@@ -32,7 +32,7 @@ region=$(echo $read_region | tr '[:upper:]' '[:lower:]')
 
 # Global variables
 current_date=$(date +%Y-%m-%d)
-full_log="migration_full_log_${account}_${current_date}.txt"
+full_log="migration_full_log_${account}_${region}_${current_date}.txt"
 migration_file="${account}_${region}_migration_${current_date}.txt"
 
 # Check if the entered region is valid
