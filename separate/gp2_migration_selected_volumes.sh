@@ -30,7 +30,7 @@ aws_regions=("us-east-1" "us-east-2" "us-west-1" "us-west-2" "af-south-1" "ap-ea
 # Convert the entered region to lowercase
 region=$(echo $read_region | tr '[:upper:]' '[:lower:]')
 
-# Global variables
+# Global variables 
 current_date=$(date +%Y-%m-%d)
 full_log="migration_full_log_${account}_${region}_${current_date}.txt"
 migration_file="${account}_${region}_migration_${current_date}.txt"
