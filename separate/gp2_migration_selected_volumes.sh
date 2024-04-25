@@ -53,7 +53,7 @@ if [[ "${aws_regions[@]}" =~ "${region}" ]]; then
                 --query 'Volumes[*].[Iops]' \
                 --output text)
 	
-        # Check if IOPS greater than 3000                        
+        # Check if IOPS is greater than 3000                        
         if [ "$iops" -gt 3000 ]; then
             # Migrate to gp3 and maintain IOPS value
             echo "Migrating volume $volume_id to gp3..." | tee -a $full_log
