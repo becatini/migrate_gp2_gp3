@@ -1,9 +1,18 @@
-# AWS EBS Volume Migration gp2 to gp3
-adfadfadf  
-adfasfadf  
-afdadf  
-adsf  
-asdf 
+# AWS EBS Volume Migration from gp2 to gp3
+
+This repository contains the code to migrate AWS EBS volumes from gp2 to gp3. 
+
+By migrating to gp3, we can save up to 20% lower price-point per GB than existing gp2 volumes.
+
+## The Tool
+
+This bash script will read the file _account.txt_ which contains all AWS accounts that volumes will be migrated.
+
+It will run over each region on all accounts (mentioned on the account.txt) searching for gp2 volumes. <br>
+For each found volume, a snapshot will be taken.
+
+
+
 
 ![Diagram](images/diagram.png)
 
