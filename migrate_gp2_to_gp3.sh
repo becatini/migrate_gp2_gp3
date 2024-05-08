@@ -52,7 +52,6 @@ for account in $(cat account.txt); do
     assumed_role=$(aws sts assume-role \
                     --role-arn $rolearn \
                     --role-session-name AssumeRoleSession \
-                    --duration-seconds 43200 \
                     --profile master \
                     --query 'Credentials.{AccessKeyId:AccessKeyId,SecretAccessKey:SecretAccessKey,SessionToken:SessionToken}')
     # Set up the credentials
@@ -64,11 +63,7 @@ for account in $(cat account.txt); do
     aws_regions=$(aws ec2 describe-regions --query 'Regions[].RegionName' --output text)
 
     # Loop to work on all regions
-    for region in $aws_regions; do
-
-        # Assume role increase durantion variables
-        #start=$(date +%s)
-        #end=$((start + 420*60))
+    for region in $aws_regions; do        
 
         echo "" | tee -a $migration_log
         echo "Processing region: $region" | tee -a $migration_log
@@ -86,17 +81,7 @@ for account in $(cat account.txt); do
 
         else
             # Read the volumes
-            echo "$volume_ids" | while read -r line; do
-
-                # Assume role - renew temporary credentials
-                #current=$(date +%s)
-                #if [ $end -lt $current ]; then
-                #    eval $(aws sts assume-role --role-arn $rolearn \
-                #        --role-session-name TestSession \
-                #        --duration-seconds 36000 \
-                #        --profile master | \
-                #        jq -r '.Credentials | "export AWS_ACCESS_KEY_ID=\(.AccessKeyId)\nexport AWS_SECRET_ACCESS_KEY=\(.SecretAccessKey)\nexport AWS_SESSION_TOKEN=\(.SessionToken)\n"')
-                #fi
+            echo "$volume_ids" | while read -r line; do                
 
                 # Get volumeID and IOPS
                 volume_id=$(echo "$line" | awk '{print $1}')
@@ -193,8 +178,6 @@ for account in $(cat account.txt); do
             done
         fi
     done
-    # Change Terraform role max session duration back to 1hour
-    aws iam update-role --role-name Terraform --max-session-duration 3600
 
     # Unset the assumed role credentials
     unset AWS_ACCESS_KEY_ID
