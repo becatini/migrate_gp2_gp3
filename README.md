@@ -6,7 +6,7 @@ By migrating to gp3, we can save up to 20% lower price-point per GB than existin
 
 ## The Tool
 
-This bash script will read the file _account.txt_ which contains all AWS accounts with the volumes to be migrated.
+This bash script will read the file _account.txt_ which contains all AWS accounts with the volumes to be migrated. _The script was created this way because we decided to split the accounts to be migrated across 3 differente phases._
 
 It will run over each region on all accounts (mentioned on the account.txt) searching for gp2 volumes.
 

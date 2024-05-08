@@ -13,4 +13,5 @@ A full log will be created showing all snapshots ID deleted.
 ## Logs
 
 The tool generates a full log.
+
 ![Diagram](../images/deleted_full_log.png)
