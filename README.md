@@ -103,4 +103,23 @@ graph TD
     loop_end --> loop_start
 
 ```
+<br>
 
+## Tool Execution
+
+![Diagram](images/run_script.png)
+
+## Logs
+
+The tool generates three logs.
+
+1. Snapshot taken before before migration. 
+It will show account ID, region, volume ID and snapshot ID.
+![Diagram](images/snapshot.png)
+
+2. Volumes migrated.
+It will show account ID, region and volume ID.
+![Diagram](images/migration.png)
+
+3. Full log during execution.
+![Diagram](images/full_log.png)
