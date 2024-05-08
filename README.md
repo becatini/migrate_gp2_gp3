@@ -6,19 +6,20 @@ By migrating to gp3, we can save up to 20% lower price-point per GB than existin
 
 ## The Tool
 
-This bash script will read the file _account.txt_ which contains all AWS accounts that volumes will be migrated.
+This bash script will read the file _account.txt_ which contains all AWS accounts with the volumes to be migrated.
 
-It will run over each region on all accounts (mentioned on the account.txt) searching for gp2 volumes. <br>
+It will run over each region on all accounts (mentioned on the account.txt) searching for gp2 volumes.
+
 For each found volume, a snapshot will be taken.
 
+If snapshot completes successfully, the migrations starts.
 
+Then it checks IOPS value. If its grater than 3000, the volume is migrated with the current IOPS value.
 
+## Diagram
 
 ![Diagram](images/diagram.png)
 
-```bash
-ls -l
-```
 
 ```mermaid
 graph TD
