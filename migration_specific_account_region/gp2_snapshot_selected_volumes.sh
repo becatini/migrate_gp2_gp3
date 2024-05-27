@@ -8,15 +8,6 @@ get_date_time() {
     date +%Y-%m-%d" "%H:%M
 }
 
-get_snapshot_state() {
-    aws ec2 describe-snapshots \
-        --owner-ids self \
-        --region $region \
-        --filters Name=description,Values="Migrate gp2 to gp3" Name=status,Values=pending \
-        --query 'Snapshots[].[SnapshotId,Progress,VolumeId]' \
-        --output text
-}
-
 # Set account | region
 account=$1
 read_region=$2
