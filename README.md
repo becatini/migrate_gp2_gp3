@@ -6,7 +6,9 @@ By migrating to gp3, we can save up to 20% lower price-point per GB than existin
 
 ## The Tool
 
-This bash script will read the file _account.txt_ which contains all AWS accounts with the volumes to be migrated. _The script was created this way because we decided to split the accounts to be migrated across 3 differente phases._
+This bash script will read the file _account.txt_ **which must contain all AWS accounts with the volumes to be migrated**. _The script was created this way due to the necessity of splitting the accounts to be migrated in 3 differente phases._
+
+**Make sure the accounts.txt file is created in the same path the script will be executed.**
 
 It will run over each region on all accounts (mentioned on the account.txt) searching for gp2 volumes.
 
@@ -16,92 +18,74 @@ If snapshot completes successfully, the migrations starts.
 
 Then it checks IOPS value. If its grater than 3000, the volume is migrated with the current IOPS value.
 
+
 ## Diagram
 
 ![Diagram](images/diagram.png)
 
+## Flow chart
 
 ```mermaid
 graph TD
-    Start((Start))
-    subgraph "Function - get_snapshot_state"
-        get_snapshot_state
-    end
-    subgraph "Function - get_date_time"
-        get_date_time
-    end
-    subgraph "List of accounts"
-        loop_start((Start))
-        loop_end((End))
-    end
-    subgraph "Assume role"
-        assume_role
-    end
-    subgraph "Export temporary credentials"
-        export_credentials
-    end
-    subgraph "Change Terraform role max session duration to 12 hours"
-        update_role
-    end
-    subgraph "Get AWS regions"
-        get_regions
-    end
-    subgraph "Loop to work on all regions"
-        region_start((Start))
-        region_end((End))
-    end
-    subgraph "Check if there is any gp2 volume"
-        check_gp2_volumes
-    end
-    subgraph "Read the volumes"
-        read_volumes
-    end
-    subgraph "IOPS greater than 3000"
-        iops_greater_3000
-    end
-    subgraph "Take a snapshot"
-        take_snapshot
-    end
-    subgraph "Check if snapshot was taken"
-        check_snapshot_taken
-    end
-    subgraph "Genereate snapshot output"
-        generate_output
-    end
-    subgraph "Check SnapshotState behaviour"
-        check_snapshot_state
-    end
-    subgraph "Migrate to gp3 and maintain IOPS value"
-        migrate_to_gp3
-    end
-    subgraph "Check migration status"
-        check_migration_status
-    end
-    subgraph "IOPS NOT greater than 3000"
-        iops_not_greater_3000
-    end
+    A[Start]     
 
-    Start --> get_snapshot_state
-    get_snapshot_state --> get_date_time
-    get_date_time --> loop_start
-    loop_start --> assume_role
-    assume_role --> export_credentials
-    export_credentials --> update_role
-    update_role --> get_regions
-    get_regions --> region_start
-    region_start --> check_gp2_volumes
-    check_gp2_volumes --> read_volumes
-    read_volumes --> iops_greater_3000
-    iops_greater_3000 --> take_snapshot
-    take_snapshot --> check_snapshot_taken
-    check_snapshot_taken --> generate_output
-    generate_output --> check_snapshot_state
-    check_snapshot_state --> migrate_to_gp3
-    migrate_to_gp3 --> check_migration_status
-    check_migration_status --> region_end
-    region_end --> loop_end
-    loop_end --> loop_start
+    A --> F[Read accounts from account.txt]
 
+    F -->|For each account| I[Print account]
+    
+    I --> J[Assume role]
+    J -->|Check if assumed role is valid| K{Valid role?}
+    K -->|Yes| L[Set up temporary credentials]
+    K -->|No| M[Log account access denied]
+    
+    L --> N[Get AWS regions]
+
+    N -->|For each region| P[Get all gp2 volumes]
+    
+    P -->|Check if any gp2 volumes exist| Q{gp2 volumes exist?}
+    Q -->|Yes| R[Read EACH volume]
+    Q -->|No| S[Log: NO gp2 volumes in region]
+
+    R --> U[Take a snapshot]
+    
+    U -->|Check if snapshot was taken| V{Snapshot taken successfully?}
+    V -->|Yes| W[Generate snapshot log file]
+    V -->|No| X[Log: snapshot not created]
+
+    W --> Y[Get snapshot state]
+    
+    Y -->|Check snapshot state| Z{Snapshot state}
+    Z -->|Pending| AA[Get snapshot progress]
+    AA -->|While pending| BB[Wait and check progress]
+    BB --> Y
+
+    Z -->|Completed| CC[Check if IOPS > 3000]
+    
+    CC -->|Yes| DD[Migrate to gp3 - keep current IOPS]
+    CC -->|No| EE[Migrate to gp3 - default IOPS value]
+    
+    DD -->|Check migration status| FF{Migration status?}
+    EE -->|Check migration status| GG{Migration status?}
+
+    FF -->|Success| HH[Log: migration success]
+    FF -->|Fail| II[Log: migration failure]
+
+    GG -->|Success| JJ[Log migration success]
+    GG -->|Fail| II
+
+    Z -->|Not pending or not completed| LL[Log: snapshot error]
+    
+    LL --> X
+
+    S --> N
+    HH --> N
+    JJ --> N
+    II --> N
+    
+    N -->|All regions processed| MM[Unset assumed role credentials]
+    MM --> F
+
+    F -->|All accounts processed| NN[End]
 ```
 <br>
 

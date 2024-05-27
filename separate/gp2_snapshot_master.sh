@@ -85,7 +85,7 @@ if [[ " ${aws_regions[@]} " =~ " ${region} " ]]; then
             # Genereate snapshot log file
             echo $snapshot | \
                 jq -r '.VolumeId, .SnapshotId' | tr '\n' ' ' | \
-                awk -v p1="$account" -v p2="$region" '{print p1, p2, $0}' >> $snapshot_file            
+                awk -v p1="$account" -v p2="$region" '{print p1, p2, $0}' >> $snapshot_file
         done
 
 #        SnapshotState=$(get_snapshot_state)
