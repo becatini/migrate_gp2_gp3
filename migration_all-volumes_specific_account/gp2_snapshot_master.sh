@@ -8,15 +8,6 @@ get_date_time() {
     date +%Y-%m-%d" "%H:%M
 }
 
-get_snapshot_state() {
-    aws ec2 describe-snapshots \
-        --owner-ids self \
-        --region $region \
-        --filters Name=description,Values="Migrate gp2 to gp3" Name=status,Values=pending \
-        --query 'Snapshots[].[SnapshotId,Progress,VolumeId]' \
-        --output text
-}
-
 # Set account | region
 account=$1
 read_region=$2
@@ -42,8 +33,6 @@ region=$(echo $read_region | tr '[:upper:]' '[:lower:]')
 # Global variables
 current_date=$(date +%Y-%m-%d)
 full_log="snapshot_full_log_${account}_${region}_${current_date}.txt"
-
-# Account variables
 snapshot_file="${account}_${region}_snapshot_${current_date}.txt"
 
 # Check if the entered region is valid
@@ -88,14 +77,6 @@ if [[ " ${aws_regions[@]} " =~ " ${region} " ]]; then
                 awk -v p1="$account" -v p2="$region" '{print p1, p2, $0}' >> $snapshot_file
         done
 
-#        SnapshotState=$(get_snapshot_state)
-#        echo "Snapshots in pending state..."
-#        while [ ! -z "$SnapshotState" ]; do
-#            SnapshotState=$(get_snapshot_state)
-#            echo "${SnapshotState}"            
-#            echo "---"
-#            sleep 15
-#        done
     fi    
     # Unset the assumed role credentials
     unset AWS_ACCESS_KEY_ID
