@@ -1,4 +1,4 @@
-# Take Snapshot and Migrate EBS Volumes Pre-selected
+# Snapshot and Migration of Pre-selected EBS Volumes 
 
 Here we have two scripts which contains the code to take snapshot, and then migrate the volume from gp2 to gp3.
 
